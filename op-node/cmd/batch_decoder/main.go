@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-node/cmd/batch_decoder/fetch"
 	"github.com/ethereum-optimism/optimism/op-node/cmd/batch_decoder/reassemble"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/urfave/cli"
@@ -110,6 +111,33 @@ func main() {
 					OutDirectory: cliCtx.String("out"),
 				}
 				reassemble.Channels(config)
+				return nil
+			},
+		},
+		{
+			Name:  "force-close",
+			Usage: "Create the tx data which will force close a channel",
+			Flags: []cli.Flag{
+				cli.StringSliceFlag{
+					Name:     "id",
+					Required: true,
+					Usage:    "ID of the channel to close",
+				},
+			},
+			Action: func(cliCtx *cli.Context) error {
+				var ids []derive.ChannelID
+				for _, sId := range cliCtx.StringSlice("id") {
+					var id derive.ChannelID
+					if err := (&id).UnmarshalText([]byte(sId)); err != nil {
+						log.Fatal(err)
+					}
+					ids = append(ids, id)
+				}
+				data, err := derive.ForceCloseTxData(ids...)
+				if err != nil {
+					log.Fatal(err)
+				}
+				fmt.Printf("%x\n", data)
 				return nil
 			},
 		},

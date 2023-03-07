@@ -213,3 +213,23 @@ func BlockToBatch(block *types.Block) (*BatchData, error) {
 		},
 	}, nil
 }
+
+// ForceCloseTxData generates the transaction data for a transaction which will force close
+// every Channel whose ID is given. It works by creating a frame with number 0 which is
+// marked as the last frame.
+func ForceCloseTxData(ids ...ChannelID) ([]byte, error) {
+	var out bytes.Buffer
+	out.WriteByte(DerivationVersion0)
+	for _, id := range ids {
+		f := Frame{
+			ID:          id,
+			FrameNumber: 0,
+			Data:        nil,
+			IsLast:      true,
+		}
+		if err := f.MarshalBinary(&out); err != nil {
+			return nil, err
+		}
+	}
+	return out.Bytes(), nil
+}
