@@ -79,7 +79,7 @@ var (
 	// Prove withdrawal inputs tuple (bytes32, bytes32, bytes32, bytes32, bytes[])
 	proveWithdrawalInputs, _ = abi.NewType("tuple", "ProveWithdrawalInputs", []abi.ArgumentMarshaling{
 		{Name: "worldRoot", Type: "bytes32"},
-		{Name: "storageRoot", Type: "bytes32"},
+		{Name: "stateRoot", Type: "bytes32"},
 		{Name: "outputRoot", Type: "bytes32"},
 		{Name: "withdrawalHash", Type: "bytes32"},
 		{Name: "proof", Type: "bytes[]"},
@@ -115,7 +115,7 @@ func main() {
 			version,
 		}
 		packed, err := decodedNonceArgs.Pack(&packArgs)
-		checkErr(err, fmt.Sprintf("Error encoding output: %s", err))
+		checkErr(err, "Error encoding output")
 
 		fmt.Print(hexutil.Encode(packed))
 		break
@@ -133,11 +133,11 @@ func main() {
 
 		// Encode cross domain message
 		encoded, err := encodeCrossDomainMessage(nonce, sender, target, value, gasLimit, data)
-		checkErr(err, fmt.Sprintf("Error encoding cross domain message: %s", err))
+		checkErr(err, "Error encoding cross domain message")
 
 		// Pack encoded cross domain message
 		packed, err := bytesArgs.Pack(&encoded)
-		checkErr(err, fmt.Sprintf("Error encoding output: %s", err))
+		checkErr(err, "Error encoding output")
 
 		fmt.Print(hexutil.Encode(packed))
 		break
@@ -155,14 +155,14 @@ func main() {
 
 		// Encode cross domain message
 		encoded, err := encodeCrossDomainMessage(nonce, sender, target, value, gasLimit, data)
-		checkErr(err, fmt.Sprintf("Error encoding cross domain message: %s", err))
+		checkErr(err, "Error encoding cross domain message")
 
 		// Hash encoded cross domain message
 		hash := crypto.Keccak256Hash(encoded)
 
 		// Pack hash
 		packed, err := fixedBytesArgs.Pack(&hash)
-		checkErr(err, fmt.Sprintf("Error encoding output: %s", err))
+		checkErr(err, "Error encoding output")
 
 		fmt.Print(hexutil.Encode(packed))
 		break
@@ -186,14 +186,14 @@ func main() {
 
 		// RLP encode deposit transaction
 		encoded, err := types.NewTx(&depositTx).MarshalBinary()
-		checkErr(err, fmt.Sprintf("Error encoding deposit transaction: %s", err))
+		checkErr(err, "Error encoding deposit transaction")
 
 		// Hash encoded deposit transaction
 		hash := crypto.Keccak256Hash(encoded)
 
 		// Pack hash
 		packed, err := fixedBytesArgs.Pack(&hash)
-		checkErr(err, fmt.Sprintf("Error encoding output: %s", err))
+		checkErr(err, "Error encoding output")
 
 		fmt.Print(hexutil.Encode(packed))
 		break
@@ -217,10 +217,10 @@ func main() {
 
 		// RLP encode deposit transaction
 		encoded, err := types.NewTx(&depositTx).MarshalBinary()
-		checkErr(err, fmt.Sprintf("Failed to RLP encode deposit transaction: %s", err))
+		checkErr(err, "Failed to RLP encode deposit transaction")
 		// Pack rlp encoded deposit transaction
 		packed, err := bytesArgs.Pack(&encoded)
-		checkErr(err, fmt.Sprintf("Error encoding output: %s", err))
+		checkErr(err, "Error encoding output")
 
 		fmt.Print(hexutil.Encode(packed))
 		break
@@ -238,11 +238,11 @@ func main() {
 
 		// Hash withdrawal
 		hash, err := hashWithdrawal(nonce, sender, target, value, gasLimit, data)
-		checkErr(err, fmt.Sprintf("Error hashing withdrawal: %s", err))
+		checkErr(err, "Error hashing withdrawal")
 
 		// Pack hash
 		packed, err := fixedBytesArgs.Pack(&hash)
-		checkErr(err, fmt.Sprintf("Error encoding output: %s", err))
+		checkErr(err, "Error encoding output")
 
 		fmt.Print(hexutil.Encode(packed))
 		break
@@ -258,7 +258,7 @@ func main() {
 
 		// Pack hash
 		packed, err := fixedBytesArgs.Pack(&hash)
-		checkErr(err, fmt.Sprintf("Error encoding output: %s", err))
+		checkErr(err, "Error encoding output")
 
 		fmt.Print(hexutil.Encode(packed))
 		break
@@ -275,7 +275,7 @@ func main() {
 		data := common.FromHex(args[6])
 
 		wdHash, err := hashWithdrawal(nonce, sender, target, value, gasLimit, data)
-		checkErr(err, fmt.Sprintf("Error hashing withdrawal: %s", err))
+		checkErr(err, "Error hashing withdrawal")
 
 		// Compute the storage slot the withdrawalHash will be stored in
 		slot := struct {
@@ -286,63 +286,61 @@ func main() {
 			ZeroPadding:    common.Hash{},
 		}
 		packed, err := withdrawalSlotArgs.Pack(&slot)
-		checkErr(err, fmt.Sprintf("Error packing withdrawal slot: %s", err))
+		checkErr(err, "Error packing withdrawal slot")
 
 		// Compute the storage slot the withdrawalHash will be stored in
 		hash := crypto.Keccak256Hash(packed)
 
-		// Create a secure trie for storage
-		storage, err := trie.NewStateTrie(
-			trie.TrieID(common.HexToHash("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")),
+		// Create a secure trie for state
+		state, err := trie.NewStateTrie(
+			trie.TrieID(EmptyTrieHash),
 			trie.NewDatabase(rawdb.NewMemoryDatabase()),
 		)
-		checkErr(err, fmt.Sprintf("Error creating secure trie: %s", err))
+		checkErr(err, "Error creating secure trie")
 
 		// Put a "true" bool in the storage slot
-		storage.Update(hash.Bytes(), []byte{0x01})
+		state.Update(hash.Bytes(), []byte{0x01})
 
 		// Create a secure trie for the world state
 		world, err := trie.NewStateTrie(
-			trie.TrieID(common.HexToHash("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")),
+			trie.TrieID(EmptyTrieHash),
 			trie.NewDatabase(rawdb.NewMemoryDatabase()),
 		)
-		checkErr(err, fmt.Sprintf("Error creating secure trie: %s", err))
+		checkErr(err, "Error creating secure trie")
 
-		// Put the storage root into the L2ToL1MessagePasser storage
-		address := common.HexToAddress("0x4200000000000000000000000000000000000016")
+		// Put the put the rlp encoded account in the world trie
 		account := types.StateAccount{
 			Nonce:   0,
 			Balance: big.NewInt(0),
-			Root:    storage.Hash(),
+			Root:    state.Hash(),
 		}
-
 		writer := new(bytes.Buffer)
-		checkErr(account.EncodeRLP(writer), fmt.Sprintf("Error encoding account: %s", err))
-		world.Update(address.Bytes(), writer.Bytes())
+		checkErr(account.EncodeRLP(writer), "Error encoding account")
+		world.Update(L2ToL1MessagePasser.Bytes(), writer.Bytes())
 
 		// Get the proof
 		var proof proofList
-		checkErr(storage.Prove(address.Bytes(), 0, &proof), fmt.Sprintf("Error getting proof: %s", err))
+		checkErr(state.Prove(L2ToL1MessagePasser.Bytes(), 0, &proof), "Error getting proof")
 
 		// Get the output root
-		outputRoot, err := hashOutputRootProof(common.Hash{}, world.Hash(), storage.Hash(), common.Hash{})
+		outputRoot, err := hashOutputRootProof(common.Hash{}, world.Hash(), state.Hash(), common.Hash{})
 
 		// Pack the output
 		output := struct {
 			WorldRoot      common.Hash
-			StorageRoot    common.Hash
+			StateRoot      common.Hash
 			OutputRoot     common.Hash
 			WithdrawalHash common.Hash
-			Proof          [][]byte
+			Proof          proofList
 		}{
 			WorldRoot:      world.Hash(),
-			StorageRoot:    storage.Hash(),
+			StateRoot:      state.Hash(),
 			OutputRoot:     outputRoot,
 			WithdrawalHash: wdHash,
 			Proof:          proof,
 		}
 		packed, err = proveWithdrawalInputsArgs.Pack(&output)
-		checkErr(err, fmt.Sprintf("Error encoding output: %s", err))
+		checkErr(err, "Error encoding output")
 
 		// Print the output
 		fmt.Print(hexutil.Encode(packed[32:]))
@@ -351,16 +349,4 @@ func main() {
 	default:
 		panic(fmt.Errorf("Unknown command: %s", args[0]))
 	}
-}
-
-// Custom type to write the generated proof to
-type proofList [][]byte
-
-func (n *proofList) Put(key []byte, value []byte) error {
-	*n = append(*n, value)
-	return nil
-}
-
-func (n *proofList) Delete(key []byte) error {
-	panic("not supported")
 }

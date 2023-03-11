@@ -14,7 +14,9 @@ import (
 
 var UnknownNonceVersion = errors.New("Unknown nonce version")
 
-var ZeroPadding = [32]byte{}
+var L2ToL1MessagePasser = common.HexToAddress("0x4200000000000000000000000000000000000016")
+
+var EmptyTrieHash = common.HexToHash("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
 
 // checkOk checks if ok is false, and panics if so.
 // Shorthand to ease go's god awful error handling
@@ -138,4 +140,16 @@ func makeDepositTx(
 	}
 
 	return depositTx
+}
+
+// Custom type to write the generated proof to
+type proofList [][]byte
+
+func (n *proofList) Put(key []byte, value []byte) error {
+	*n = append(*n, value)
+	return nil
+}
+
+func (n *proofList) Delete(key []byte) error {
+	panic("not supported")
 }
